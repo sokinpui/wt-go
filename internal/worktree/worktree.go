@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sokinpui/wt.go/internal/git"
+	"github.com/sokinpui/wt-go/internal/git"
 )
 
 // CreateWorktreeAndBranch handles creation and switching of Git worktrees.

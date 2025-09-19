@@ -1,4 +1,4 @@
-module github.com/sokinpui/wt.go
+module github.com/sokinpui/wt-go
 
 go 1.24.1
 

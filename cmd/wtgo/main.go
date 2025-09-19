@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sokinpui/wt.go/internal/worktree"
+	"github.com/sokinpui/wt-go/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
