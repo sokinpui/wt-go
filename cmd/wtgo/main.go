@@ -18,6 +18,7 @@ var rootCmd = &cobra.Command{
 Usage:
   wtgo                       List all Git worktrees
   wtgo <branch>              Create a new worktree and branch named <branch>
+  wtgo -                     Switch to the previous worktree
   wtgo --rm <branch>         Remove worktree <branch> and delete branch <branch> (use with caution)
   git branch | fzf | wtgo    Create a new worktree for a branch selected via fzf
 `,
@@ -33,6 +34,15 @@ Usage:
 
 		// If arguments are provided, process them directly.
 		if len(args) == 1 {
+			if args[0] == "-" {
+				path, err := worktree.SwitchToPreviousWorktree()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Print(path)
+				return
+			}
 			worktree.CreateWorktreeAndBranch(args[0])
 			return
 		}

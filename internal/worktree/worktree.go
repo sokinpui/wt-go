@@ -20,6 +20,11 @@ func CreateWorktreeAndBranch(branchName string) {
 		return
 	}
 
+	if err := saveCurrentWorktreeState(); err != nil {
+		// This is not a fatal error, so just print a warning.
+		fmt.Fprintf(os.Stderr, "Warning: could not save current worktree state: %v\n", err)
+	}
+
 	existingPath, err := FindWorktreePathForBranch(branchName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error checking for existing worktree for branch '%s': %v\n", branchName, err)
@@ -185,4 +190,59 @@ func ListWorktrees() {
 	for _, branch := range orderedBranchNames {
 		fmt.Println(branch)
 	}
+}
+
+// SwitchToPreviousWorktree returns the path of the previous worktree from the state file.
+// It also saves the current working directory to the state file to allow toggling.
+func SwitchToPreviousWorktree() (string, error) {
+	stateFile, err := getStateFilePath()
+	if err != nil {
+		return "", fmt.Errorf("getting state file path: %w", err)
+	}
+
+	content, err := os.ReadFile(stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("no previous worktree state found")
+		}
+		return "", fmt.Errorf("reading state file: %w", err)
+	}
+
+	path := strings.TrimSpace(string(content))
+	if path == "" {
+		return "", fmt.Errorf("state file is empty")
+	}
+
+	// Before returning the path to switch to, we should save the current path.
+	// This allows for toggling between two worktrees with `wt -`.
+	if err := saveCurrentWorktreeState(); err != nil {
+		// Not a fatal error for switching, but the user should know.
+		fmt.Fprintf(os.Stderr, "Warning: could not save current worktree state: %v\n", err)
+	}
+
+	return path, nil
+}
+
+func getStateFilePath() (string, error) {
+	gitCommonDir, err := git.Exec("rev-parse", "--git-common-dir")
+	if err != nil {
+		return "", fmt.Errorf("not a git repository or could not determine common git directory: %w", err)
+	}
+	gitCommonDir = strings.TrimSpace(gitCommonDir)
+
+	return filepath.Join(gitCommonDir, "wt.state"), nil
+}
+
+func saveCurrentWorktreeState() error {
+	stateFile, err := getStateFilePath()
+	if err != nil {
+		return fmt.Errorf("could not get state file path: %w", err)
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not get current working directory: %w", err)
+	}
+
+	return os.WriteFile(stateFile, []byte(wd), 0644)
 }
