@@ -46,7 +46,8 @@ func CreateWorktreeAndBranch(branchName string) {
 	repoBaseName := filepath.Base(repoRoot)
 
 	worktreeCollectionDir := filepath.Join(parentDir, repoBaseName+".wt")
-	newWorktreePath := filepath.Join(worktreeCollectionDir, branchName)
+	sanitizedBranchName := strings.ReplaceAll(branchName, "/", "_")
+	newWorktreePath := filepath.Join(worktreeCollectionDir, sanitizedBranchName)
 
 	_, err = git.Exec("rev-parse", "--verify", "--quiet", "refs/heads/"+branchName)
 	branchExists := err == nil
