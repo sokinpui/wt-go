@@ -9,12 +9,24 @@ import (
 	"github.com/sokinpui/wt.go/internal/git"
 )
 
-// CreateWorktreeAndBranch creates a new Git worktree and a new branch.
-// The worktree will be created in a sibling directory to the current repository,
-// named after the branch.
+// CreateWorktreeAndBranch handles creation and switching of Git worktrees.
+// If a worktree for the given branch already exists, it prints the path to that worktree.
+// This allows for easy switching, e.g., `cd $(wt <branch>)`.
+// If no worktree exists, it creates a new one. If the branch doesn't exist,
+// it creates the branch as well. After creation, it prints the new worktree's path.
 func CreateWorktreeAndBranch(branchName string) {
 	if branchName == "" {
 		fmt.Fprintf(os.Stderr, "Error: Branch name cannot be empty.\n")
+		return
+	}
+
+	existingPath, err := FindWorktreePathForBranch(branchName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error checking for existing worktree for branch '%s': %v\n", branchName, err)
+		return
+	}
+	if existingPath != "" {
+		fmt.Print(existingPath)
 		return
 	}
 
@@ -25,44 +37,37 @@ func CreateWorktreeAndBranch(branchName string) {
 	}
 	repoRoot = strings.TrimSpace(repoRoot)
 
-	// Extract parent directory and repository base name
 	parentDir := filepath.Dir(repoRoot)
 	repoBaseName := filepath.Base(repoRoot)
 
-	// Construct the new worktree path: ../<repo>.wt/<branch>
 	worktreeCollectionDir := filepath.Join(parentDir, repoBaseName+".wt")
 	newWorktreePath := filepath.Join(worktreeCollectionDir, branchName)
 
-	// Check if the branch already exists
-	branchExists := false
-	// git rev-parse --verify --quiet refs/heads/<branchName> returns 0 if branch exists, 1 otherwise.
-	// We only care about the error status, not the output.
 	_, err = git.Exec("rev-parse", "--verify", "--quiet", "refs/heads/"+branchName)
-	if err == nil {
-		branchExists = true
-	}
+	branchExists := err == nil
 
 	var gitArgs []string
-	var successMessage string
+	var creationMessage string
 
 	if branchExists {
-		fmt.Printf("Creating new worktree for existing branch '%s' at '%s'...\n", branchName, newWorktreePath)
+		creationMessage = fmt.Sprintf("Creating new worktree for existing branch '%s' at '%s'...\n", branchName, newWorktreePath)
 		gitArgs = []string{"worktree", "add", newWorktreePath, branchName}
-		successMessage = "Successfully created worktree for existing branch '%s'.\n"
 	} else {
-		fmt.Printf("Creating new worktree '%s' at '%s' and new branch '%s'...\n", branchName, newWorktreePath, branchName)
+		creationMessage = fmt.Sprintf("Creating new worktree '%s' at '%s' and new branch '%s'...\n", branchName, newWorktreePath, branchName)
 		gitArgs = []string{"worktree", "add", "-b", branchName, newWorktreePath}
-		successMessage = "Successfully created worktree and new branch '%s'.\n"
 	}
 
+	fmt.Fprint(os.Stderr, creationMessage)
 	output, err := git.Exec(gitArgs...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating worktree for branch '%s': %v\n%s\n", branchName, err, output)
 		return
 	}
-
-	fmt.Printf(successMessage, branchName)
-	fmt.Print(output)
+	// Print any informational output from the git command to stderr.
+	if strings.TrimSpace(output) != "" {
+		fmt.Fprint(os.Stderr, output)
+	}
+	fmt.Print(newWorktreePath)
 }
 
 // RemoveWorktreeAndBranch removes a Git worktree and deletes its associated branch.
@@ -82,23 +87,23 @@ func RemoveWorktreeAndBranch(branchName string) {
 		return
 	}
 
-	fmt.Printf("Removing worktree at '%s' for branch '%s'...\n", worktreePath, branchName)
+	fmt.Fprintf(os.Stderr, "Removing worktree at '%s' for branch '%s'...\n", worktreePath, branchName)
 	output, err := git.Exec("worktree", "remove", worktreePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error removing worktree '%s': %v\n%s\n", worktreePath, err, output)
 		return
 	}
-	fmt.Printf("Worktree '%s' removed successfully.\n", worktreePath)
-	fmt.Print(output)
+	fmt.Fprintf(os.Stderr, "Worktree '%s' removed successfully.\n", worktreePath)
+	fmt.Fprint(os.Stderr, output)
 
-	fmt.Printf("Deleting branch '%s'...\n", branchName)
+	fmt.Fprintf(os.Stderr, "Deleting branch '%s'...\n", branchName)
 	output, err = git.Exec("branch", "-D", branchName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error deleting branch '%s': %v\n%s\n", branchName, err, output)
 		return
 	}
-	fmt.Printf("Branch '%s' deleted successfully.\n", branchName)
-	fmt.Print(output)
+	fmt.Fprintf(os.Stderr, "Branch '%s' deleted successfully.\n", branchName)
+	fmt.Fprint(os.Stderr, output)
 }
 
 // FindWorktreePathForBranch parses `git worktree list --porcelain` to find the path
@@ -151,29 +156,33 @@ func ListWorktrees() {
 		return
 	}
 
-	branchNames := make(map[string]struct{})
+	var orderedBranchNames []string
+	seenBranches := make(map[string]bool)
 	lines := strings.Split(output, "\n")
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "branch ") {
 			parts := strings.SplitN(line, " ", 2)
-			if len(parts) == 2 {
+			if len(parts) == 2 { // Ensure there's a branch ref part
 				branchRef := strings.TrimPrefix(parts[1], "refs/heads/")
 				if branchRef != "" {
-					branchNames[branchRef] = struct{}{}
+					if !seenBranches[branchRef] {
+						orderedBranchNames = append(orderedBranchNames, branchRef)
+						seenBranches[branchRef] = true
+					}
 				}
 			}
 		}
 	}
 
-	if len(branchNames) == 0 {
-		fmt.Println("No Git worktrees found.")
+	if len(orderedBranchNames) == 0 {
+		fmt.Fprintln(os.Stdout, "No Git worktrees found.")
 		return
 	}
 
-	fmt.Println("Git worktree branches:")
-	for branch := range branchNames {
+	fmt.Fprintln(os.Stdout, "Git worktree branches:")
+	for _, branch := range orderedBranchNames {
 		fmt.Println(branch)
 	}
 }
