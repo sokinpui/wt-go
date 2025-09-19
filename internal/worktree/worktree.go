@@ -83,6 +83,11 @@ func RemoveWorktreeAndBranch(branchName string) {
 		return
 	}
 
+	if branchName == "main" || branchName == "master" {
+		fmt.Fprintf(os.Stderr, "Error: Deleting the '%s' branch is not allowed.\n", branchName)
+		return
+	}
+
 	worktreePath, err := FindWorktreePathForBranch(branchName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error finding worktree for branch '%s': %v\n", branchName, err)
