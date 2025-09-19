@@ -80,8 +80,6 @@ Usage:
 // removeFlag is a persistent flag to indicate removal of a worktree.
 var removeFlag bool
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
