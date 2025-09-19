@@ -33,15 +33,35 @@ func CreateWorktreeAndBranch(branchName string) {
 	worktreeCollectionDir := filepath.Join(parentDir, repoBaseName+".wt")
 	newWorktreePath := filepath.Join(worktreeCollectionDir, branchName)
 
-	fmt.Printf("Creating new worktree '%s' at '%s' and new branch '%s'...\n", branchName, newWorktreePath, branchName)
+	// Check if the branch already exists
+	branchExists := false
+	// git rev-parse --verify --quiet refs/heads/<branchName> returns 0 if branch exists, 1 otherwise.
+	// We only care about the error status, not the output.
+	_, err = git.Exec("rev-parse", "--verify", "--quiet", "refs/heads/"+branchName)
+	if err == nil {
+		branchExists = true
+	}
 
-	output, err := git.Exec("worktree", "add", "-b", branchName, newWorktreePath)
+	var gitArgs []string
+	var successMessage string
+
+	if branchExists {
+		fmt.Printf("Creating new worktree for existing branch '%s' at '%s'...\n", branchName, newWorktreePath)
+		gitArgs = []string{"worktree", "add", newWorktreePath, branchName}
+		successMessage = "Successfully created worktree for existing branch '%s'.\n"
+	} else {
+		fmt.Printf("Creating new worktree '%s' at '%s' and new branch '%s'...\n", branchName, newWorktreePath, branchName)
+		gitArgs = []string{"worktree", "add", "-b", branchName, newWorktreePath}
+		successMessage = "Successfully created worktree and new branch '%s'.\n"
+	}
+
+	output, err := git.Exec(gitArgs...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating worktree and branch '%s': %v\n%s\n", branchName, err, output)
+		fmt.Fprintf(os.Stderr, "Error creating worktree for branch '%s': %v\n%s\n", branchName, err, output)
 		return
 	}
 
-	fmt.Printf("Successfully created worktree and branch '%s'.\n", branchName)
+	fmt.Printf(successMessage, branchName)
 	fmt.Print(output)
 }
 
