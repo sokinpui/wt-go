@@ -122,6 +122,17 @@ func RemoveWorktreeAndBranch(branchName string, force bool) {
 	output, err = git.Exec("branch", deleteFlag, branchName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error deleting branch '%s': %v\n%s\n", branchName, err, output)
+
+		// Branch deletion failed, attempt to restore worktree to leave the user in a consistent state.
+		fmt.Fprintf(os.Stderr, "Attempting to restore worktree at '%s'...\n", worktreePath)
+		recreateArgs := []string{"worktree", "add", worktreePath, branchName}
+		recreateOutput, recreateErr := git.Exec(recreateArgs...)
+		if recreateErr != nil {
+			fmt.Fprintf(os.Stderr, "FATAL: Could not restore worktree for branch '%s'. Please check your repository state.\nError: %v\n%s\n", branchName, recreateErr, recreateOutput)
+		} else {
+			fmt.Fprintf(os.Stderr, "Worktree for branch '%s' restored successfully.\n", branchName)
+			fmt.Fprint(os.Stderr, recreateOutput)
+		}
 		return
 	}
 	fmt.Fprintf(os.Stderr, "Branch '%s' deleted successfully.\n", branchName)
