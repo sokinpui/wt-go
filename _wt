@@ -1,0 +1,36 @@
+#compdef wt
+
+_wt() {
+  local -a branches
+  local -a wt_flags
+
+  # Get a clean list of local git branches
+  branches=(${(f)"$(git branch --format='%(refname:short)')"})
+
+  # Explicitly define the flags that 'wt' accepts
+  wt_flags=(
+    '--rm:Remove a Git worktree and delete its branch'
+  )
+
+  _arguments \
+    '1: :->first_arg' \
+    '2: :->second_arg'
+
+  case $state in
+    first_arg)
+      # For the first argument, offer branch names OR our defined flags
+      _alternative \
+        "branches:local branches: _values 'branch' $branches" \
+        "flags:options: _describe 'flags' wt_flags"
+      ;;
+    second_arg)
+      # If the first word was --rm, offer branch names for the second
+      if [[ "${words[1]}" == "--rm" ]]; then
+        _values "branch" $branches
+      fi
+      ;;
+  esac
+}
+
+# Call the function to register it
+_wt "$@"

@@ -1,0 +1,17 @@
+# vi: filetype=zsh
+# Wrapper function for the git-worktreeizer script.
+
+if [ "$#" -eq 0 ]; then
+  wtdir=$(wtgo | tail -n +2 | fzf )
+  [[ -z $wtdir ]] && return
+  cd $(wtgo $wtdir)
+fi
+
+if [ "$#" -eq 1 ]; then
+  cd $(wtgo "$@")
+fi
+
+if [ "$#" -ge 2 ]; then
+  wtgo "$@"
+fi
+
