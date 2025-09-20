@@ -53,17 +53,16 @@ func CreateWorktreeAndBranch(branchName string) {
 	branchExists := err == nil
 
 	var gitArgs []string
-	var creationMessage string
 
 	if branchExists {
-		creationMessage = fmt.Sprintf("Creating new worktree for existing branch '%s' at '%s'...\n", branchName, newWorktreePath)
+		fmt.Fprintf(os.Stderr, "worktree create: %s\n", newWorktreePath)
 		gitArgs = []string{"worktree", "add", newWorktreePath, branchName}
 	} else {
-		creationMessage = fmt.Sprintf("Creating new worktree '%s' at '%s' and new branch '%s'...\n", branchName, newWorktreePath, branchName)
+		fmt.Fprintf(os.Stderr, "branch create: %s\n", branchName)
+		fmt.Fprintf(os.Stderr, "worktree create: %s\n", newWorktreePath)
 		gitArgs = []string{"worktree", "add", "-b", branchName, newWorktreePath}
 	}
 
-	fmt.Fprint(os.Stderr, creationMessage)
 	output, err := git.Exec(gitArgs...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating worktree for branch '%s': %v\n%s\n", branchName, err, output)
@@ -98,7 +97,6 @@ func RemoveWorktreeAndBranch(branchName string, force bool) {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "Removing worktree at '%s' for branch '%s'...\n", worktreePath, branchName)
 	removeArgs := []string{"worktree", "remove"}
 	if force {
 		removeArgs = append(removeArgs, "--force")
@@ -110,10 +108,11 @@ func RemoveWorktreeAndBranch(branchName string, force bool) {
 		fmt.Fprintf(os.Stderr, "Error removing worktree '%s': %v\n%s\n", worktreePath, err, output)
 		return
 	}
-	fmt.Fprintf(os.Stderr, "Worktree '%s' removed successfully.\n", worktreePath)
-	fmt.Fprint(os.Stderr, output)
+	fmt.Fprintf(os.Stderr, "worktree remove: %s\n", worktreePath)
+	if strings.TrimSpace(output) != "" {
+		fmt.Fprint(os.Stderr, output)
+	}
 
-	fmt.Fprintf(os.Stderr, "Deleting branch '%s'...\n", branchName)
 	deleteFlag := "-d"
 	if force {
 		deleteFlag = "-D"
@@ -135,8 +134,10 @@ func RemoveWorktreeAndBranch(branchName string, force bool) {
 		}
 		return
 	}
-	fmt.Fprintf(os.Stderr, "Branch '%s' deleted successfully.\n", branchName)
-	fmt.Fprint(os.Stderr, output)
+	fmt.Fprintf(os.Stderr, "branch delete: %s\n", branchName)
+	if strings.TrimSpace(output) != "" {
+		fmt.Fprint(os.Stderr, output)
+	}
 }
 
 // FindWorktreePathForBranch parses `git worktree list --porcelain` to find the path
