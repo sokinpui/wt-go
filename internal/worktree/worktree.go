@@ -114,7 +114,12 @@ func RemoveWorktreeAndBranch(branchName string, force bool) {
 	fmt.Fprint(os.Stderr, output)
 
 	fmt.Fprintf(os.Stderr, "Deleting branch '%s'...\n", branchName)
-	output, err = git.Exec("branch", "-D", branchName)
+	deleteFlag := "-d"
+	if force {
+		deleteFlag = "-D"
+	}
+
+	output, err = git.Exec("branch", deleteFlag, branchName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error deleting branch '%s': %v\n%s\n", branchName, err, output)
 		return
