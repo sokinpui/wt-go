@@ -77,7 +77,7 @@ func CreateWorktreeAndBranch(branchName string) {
 }
 
 // RemoveWorktreeAndBranch removes a Git worktree and deletes its associated branch.
-func RemoveWorktreeAndBranch(branchName string) {
+func RemoveWorktreeAndBranch(branchName string, force bool) {
 	if branchName == "" {
 		fmt.Fprintf(os.Stderr, "Error: Branch name cannot be empty.\n")
 		return
@@ -99,7 +99,13 @@ func RemoveWorktreeAndBranch(branchName string) {
 	}
 
 	fmt.Fprintf(os.Stderr, "Removing worktree at '%s' for branch '%s'...\n", worktreePath, branchName)
-	output, err := git.Exec("worktree", "remove", worktreePath)
+	removeArgs := []string{"worktree", "remove"}
+	if force {
+		removeArgs = append(removeArgs, "--force")
+	}
+	removeArgs = append(removeArgs, worktreePath)
+
+	output, err := git.Exec(removeArgs...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error removing worktree '%s': %v\n%s\n", worktreePath, err, output)
 		return

@@ -16,19 +16,24 @@ var rootCmd = &cobra.Command{
 	Long: `wtgo (worktree) is a command-line interface tool designed to simplify Git worktree management. It allows you to list, create, and remove Git worktrees with ease.
 
 Usage:
-  wtgo                       List all Git worktrees
-  wtgo <branch>              Create a new worktree and branch named <branch>
-  wtgo -                     Switch to the previous worktree
-  wtgo --rm <branch>         Remove worktree <branch> and delete branch <branch> (use with caution)
-  git branch | fzf | wtgo    Create a new worktree for a branch selected via fzf
+  wtgo                            List all Git worktrees
+  wtgo <branch>                   Create a new worktree and branch named <branch>
+  wtgo -                          Switch to the previous worktree
+  wtgo --rm [-f|--force] <branch> Remove worktree <branch> and delete branch <branch> (use with caution)
+  git branch | fzf | wtgo         Create a new worktree for a branch selected via fzf
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		if forceFlag && !removeFlag {
+			fmt.Fprintf(os.Stderr, "Error: The --force/-f flag can only be used with --rm.\n")
+			os.Exit(1)
+		}
+
 		if removeFlag { // Guard clause for --rm flag
 			if len(args) != 1 {
 				fmt.Fprintf(os.Stderr, "Error: The --rm flag requires exactly one argument (the branch name).\n")
 				os.Exit(1)
 			}
-			worktree.RemoveWorktreeAndBranch(args[0])
+			worktree.RemoveWorktreeAndBranch(args[0], forceFlag)
 			return
 		}
 
@@ -79,6 +84,7 @@ Usage:
 
 // removeFlag is a persistent flag to indicate removal of a worktree.
 var removeFlag bool
+var forceFlag bool
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
@@ -95,4 +101,5 @@ func main() {
 func init() {
 	// Add persistent flags here
 	rootCmd.PersistentFlags().BoolVarP(&removeFlag, "rm", "", false, "Remove a Git worktree and delete its branch")
+	rootCmd.PersistentFlags().BoolVarP(&forceFlag, "force", "f", false, "Force remove a Git worktree")
 }
