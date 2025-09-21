@@ -20,16 +20,37 @@ func CreateWorktreeAndBranch(branchName string) {
 		return
 	}
 
-	if err := saveCurrentWorktreeState(); err != nil {
-		// This is not a fatal error, so just print a warning.
-		fmt.Fprintf(os.Stderr, "Warning: could not save current worktree state: %v\n", err)
-	}
-
 	existingPath, err := FindWorktreePathForBranch(branchName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error checking for existing worktree for branch '%s': %v\n", branchName, err)
 		return
 	}
+
+	isSwitching := false
+	if existingPath != "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			// If we can't get the current directory, we can't compare.
+			// To be safe, don't update the state.
+			fmt.Fprintf(os.Stderr, "Warning: could not get current working directory: %v\n", err)
+		} else {
+			absWd, errWd := filepath.Abs(wd)
+			absExistingPath, errExisting := filepath.Abs(existingPath)
+			if errWd == nil && errExisting == nil && absWd != absExistingPath {
+				isSwitching = true
+			}
+		}
+	} else {
+		// No existing worktree, so we are creating one, which is a switch.
+		isSwitching = true
+	}
+
+	if isSwitching {
+		if err := saveCurrentWorktreeState(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not save current worktree state: %v\n", err)
+		}
+	}
+
 	if existingPath != "" {
 		fmt.Print(existingPath)
 		return
@@ -271,6 +292,15 @@ func saveCurrentWorktreeState() error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not get current working directory: %w", err)
+	}
+
+	content, err := os.ReadFile(stateFile)
+	if err == nil {
+		if strings.TrimSpace(string(content)) == wd {
+			return nil // Path is the same, no need to update.
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("could not read state file for comparison: %w", err)
 	}
 
 	return os.WriteFile(stateFile, []byte(wd), 0644)
