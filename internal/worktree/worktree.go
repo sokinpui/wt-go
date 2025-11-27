@@ -56,12 +56,13 @@ func CreateWorktreeAndBranch(branchName string) {
 		return
 	}
 
-	repoRoot, err := git.Exec("rev-parse", "--show-toplevel")
+	repoRoot, err := git.Exec("rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Not a git repository or cannot determine root: %v\n", err)
 		return
 	}
 	repoRoot = strings.TrimSpace(repoRoot)
+	repoRoot = filepath.Dir(repoRoot)
 
 	parentDir := filepath.Dir(repoRoot)
 	repoBaseName := filepath.Base(repoRoot)
